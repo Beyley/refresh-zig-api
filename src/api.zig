@@ -8,14 +8,32 @@ const RefreshApiError = struct {
 };
 
 ///Returns a type representing a full API response
-fn RefreshApiResponse(comptime T: type) type {
+fn RefreshApiResponse(comptime DataType: type) type {
     return struct {
         ///Whether the API call was successful
         success: bool,
         ///The returned API error
         @"error": ?RefreshApiError = null,
         //The returned API data
-        data: ?T = null,
+        data: ?DataType = null,
+    };
+}
+
+const ListInformation = struct {
+    nextPageIndex: i32,
+    totalItems: i32,
+};
+
+///Returns a type representing a full API List response
+fn RefreshApiListResponse(comptime ListItemType: type) type {
+    return struct {
+        listInfo: ?ListInformation,
+        ///Whether the API call was successful
+        success: bool,
+        ///The returned API error
+        @"error": ?RefreshApiError = null,
+        //The returned API data
+        data: ?[]const ListItemType = null,
     };
 }
 
@@ -155,13 +173,31 @@ const Statistics = struct {
     },
 };
 
-const ApiGameLevelResponse = RefreshApiResponse(GameLevel);
+const ApiRoute = struct {
+    method: []const u8,
+    routeUri: []const u8,
+    summary: []const u8,
+    authenticationRequired: bool,
+    parameters: []const struct {
+        name: []const u8,
+        type: enum {
+            Route,
+            Query,
+        },
+        summary: []const u8,
+    },
+    potentialErrors: []const struct {
+        name: []const u8,
+        occursWhen: []const u8,
+    },
+};
 
 const ApiError = error{
     DataNullWhenSuccess,
     ErrorNullWhenFailure,
     UnknownApiError,
     ApiNotFoundError,
+    ListResponseMissingListInfo,
 };
 
 pub const Error =
@@ -247,6 +283,35 @@ fn ApiResponse(comptime T: type) type {
     };
 }
 
+fn ApiListResponse(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        ///The arena allocator storing the underlying memory
+        arena: std.heap.ArenaAllocator,
+        ///The response from the server
+        response: union(enum) {
+            ///An error response
+            error_response: struct {
+                api_error: Error,
+                message: []const u8,
+            },
+            ///The returned data
+            list: struct {
+                info: ListInformation,
+                data: []const T,
+            },
+        },
+
+        pub fn deinit(self: *Self) void {
+            //Deinit the arena, freeing the data
+            self.arena.deinit();
+            //Set self to undefined, so safety checks catch further usage
+            self.* = undefined;
+        }
+    };
+}
+
 fn mostBytesForInt(comptime T: type) comptime_int {
     return @intFromFloat(@floor(@log10(@as(comptime_float, std.math.maxInt(T)))) + 1);
 }
@@ -289,6 +354,51 @@ pub fn getStatistics(allocator: std.mem.Allocator, uri: std.Uri) Error!ApiRespon
     return try toApiResponse(&arena, Statistics, request);
 }
 
+pub fn getDocumentation(allocator: std.mem.Allocator, uri: std.Uri) Error!ApiListResponse(ApiRoute) {
+    const endpoint = "/api/v3/documentation";
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiListResponse(ApiRoute),
+        uri,
+        endpoint,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiListResponse(&arena, ApiRoute, request);
+}
+
+pub fn getLevelById(allocator: std.mem.Allocator, uri: std.Uri, id: i32) Error!ApiResponse(GameLevel) {
+    const endpoint = "/api/v3/levels/id/";
+    const max_request_length = comptime mostBytesForInt(i32) + endpoint.len;
+
+    var path_buf: [max_request_length]u8 = undefined;
+    var stream = std.io.fixedBufferStream(&path_buf);
+    try std.fmt.format(stream.writer(), endpoint ++ "{d}", .{id});
+
+    const path = path_buf[0..stream.pos];
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(GameLevel),
+        uri,
+        path,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiResponse(&arena, GameLevel, request);
+}
+
 fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: anytype) Error!ApiResponse(T) {
     if (request.value.success)
         if (request.value.data) |data| {
@@ -316,28 +426,36 @@ fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: any
     } else return ApiError.ErrorNullWhenFailure;
 }
 
-pub fn getLevelById(allocator: std.mem.Allocator, uri: std.Uri, id: i32) Error!ApiResponse(GameLevel) {
-    const endpoint = "/api/v3/levels/id/";
-    const max_request_length = comptime mostBytesForInt(i32) + endpoint.len;
+fn toApiListResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: anytype) Error!ApiListResponse(T) {
+    if (request.value.success)
+        if (request.value.data) |data| {
+            if (request.value.listInfo) |info| {
+                var copied_data = try helpers.deepCopy(arena.allocator(), data);
+                return .{
+                    .arena = arena.*,
+                    .response = .{
+                        .list = .{
+                            .info = info,
+                            .data = copied_data,
+                        },
+                    },
+                };
+            } else return ApiError.ListResponseMissingListInfo;
+        } else return ApiError.DataNullWhenSuccess
+    else if (request.value.@"error") |api_error| {
+        var err = ApiError.UnknownApiError;
 
-    var path_buf: [max_request_length]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&path_buf);
-    try std.fmt.format(stream.writer(), endpoint ++ "{d}", .{id});
+        if (std.mem.eql(u8, api_error.name, "ApiNotFoundError")) err = ApiError.ApiNotFoundError;
 
-    const path = path_buf[0..stream.pos];
-
-    var request = try makeRequest(
-        allocator,
-        RefreshApiResponse(GameLevel),
-        uri,
-        path,
-        .GET,
-        null,
-    );
-    defer request.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(allocator);
-    errdefer arena.deinit();
-
-    return try toApiResponse(&arena, GameLevel, request);
+        var copied_message = try arena.allocator().dupe(u8, api_error.message);
+        return .{
+            .arena = arena.*,
+            .response = .{
+                .error_response = .{
+                    .api_error = err,
+                    .message = copied_message,
+                },
+            },
+        };
+    } else return ApiError.ErrorNullWhenFailure;
 }

@@ -70,3 +70,18 @@ test "get instance statistics" {
         },
     }
 }
+
+test "get instance documentation" {
+    var res = try Api.getDocumentation(testing.allocator, uri);
+    defer res.deinit();
+
+    switch (res.response) {
+        .list => |list| {
+            _ = list;
+        },
+        .error_response => |err| {
+            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            return err.api_error;
+        },
+    }
+}
