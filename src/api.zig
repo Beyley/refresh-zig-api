@@ -95,6 +95,66 @@ pub const GameLevel = struct {
     isCopyable: bool,
 };
 
+pub const AssetSafetyLevel = enum(i32) {
+    safe = 0,
+    potentially_unwanted = 1,
+    dangerous = 2,
+};
+
+pub const GameAnnouncement = struct {
+    announcementId: []const u8,
+    title: []const u8,
+    text: []const u8,
+    createdAt: []const u8,
+};
+
+pub const RichPresenceConfiguration = struct {
+    applicationId: []const u8,
+    partyIdPrefix: []const u8,
+    assetConfiguration: struct {
+        useApplicationAssets: bool,
+        podAsset: ?[]const u8,
+        moonAsset: ?[]const u8,
+        remoteMoonAsset: ?[]const u8,
+        developerAsset: ?[]const u8,
+        developerAdventureAsset: ?[]const u8,
+        dlcAsset: ?[]const u8,
+        fallbackAsset: ?[]const u8,
+    },
+};
+
+pub const InstanceInformation = struct {
+    instanceName: []const u8,
+    instanceDescription: []const u8,
+    softwareName: []const u8,
+    softwareVersion: []const u8,
+    softwareType: []const u8,
+    softwareSourceUrl: []const u8,
+    softwareLicenseName: []const u8,
+    softwareLicenseUrl: []const u8,
+    registrationEnabled: bool,
+    maximumAssetSafetyLevel: AssetSafetyLevel,
+    announcements: []const GameAnnouncement,
+    richPresenceConfiguration: RichPresenceConfiguration,
+    maintenanceModeEnabled: bool,
+    grafanaDashboardUrl: ?[]const u8,
+};
+
+const Statistics = struct {
+    totalLevels: i32,
+    totalUsers: i32,
+    totalPhotos: i32,
+    totalEvents: i32,
+    currentRoomCount: i32,
+    currentIngamePlayersCount: i32,
+    requestStatistics: struct {
+        totalRequests: i64,
+        apiRequests: i64,
+        legacyApiRequests: i64,
+        gameRequests: i64,
+    },
+};
+
 const ApiGameLevelResponse = RefreshApiResponse(GameLevel);
 
 const ApiError = error{
@@ -191,6 +251,71 @@ fn mostBytesForInt(comptime T: type) comptime_int {
     return @intFromFloat(@floor(@log10(@as(comptime_float, std.math.maxInt(T)))) + 1);
 }
 
+pub fn getInstanceInformation(allocator: std.mem.Allocator, uri: std.Uri) Error!ApiResponse(InstanceInformation) {
+    const endpoint = "/api/v3/instance";
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(InstanceInformation),
+        uri,
+        endpoint,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiResponse(&arena, InstanceInformation, request);
+}
+
+pub fn getStatistics(allocator: std.mem.Allocator, uri: std.Uri) Error!ApiResponse(Statistics) {
+    const endpoint = "/api/v3/statistics";
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(Statistics),
+        uri,
+        endpoint,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiResponse(&arena, Statistics, request);
+}
+
+fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: anytype) Error!ApiResponse(T) {
+    if (request.value.success)
+        if (request.value.data) |data| {
+            var copied_data = try helpers.deepCopy(arena.allocator(), data);
+            return .{
+                .arena = arena.*,
+                .response = .{ .data = copied_data },
+            };
+        } else return ApiError.DataNullWhenSuccess
+    else if (request.value.@"error") |api_error| {
+        var err = ApiError.UnknownApiError;
+
+        if (std.mem.eql(u8, api_error.name, "ApiNotFoundError")) err = ApiError.ApiNotFoundError;
+
+        var copied_message = try arena.allocator().dupe(u8, api_error.message);
+        return .{
+            .arena = arena.*,
+            .response = .{
+                .error_response = .{
+                    .api_error = err,
+                    .message = copied_message,
+                },
+            },
+        };
+    } else return ApiError.ErrorNullWhenFailure;
+}
+
 pub fn getLevelById(allocator: std.mem.Allocator, uri: std.Uri, id: i32) Error!ApiResponse(GameLevel) {
     const endpoint = "/api/v3/levels/id/";
     const max_request_length = comptime mostBytesForInt(i32) + endpoint.len;
@@ -201,32 +326,18 @@ pub fn getLevelById(allocator: std.mem.Allocator, uri: std.Uri, id: i32) Error!A
 
     const path = path_buf[0..stream.pos];
 
-    var request = try makeRequest(allocator, RefreshApiResponse(GameLevel), uri, path, .GET, null);
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(GameLevel),
+        uri,
+        path,
+        .GET,
+        null,
+    );
     defer request.deinit();
 
     var arena = std.heap.ArenaAllocator.init(allocator);
     errdefer arena.deinit();
 
-    if (request.value.success)
-        if (request.value.data) |data| {
-            var copied_data = try helpers.deepCopy(arena.allocator(), data);
-            return .{
-                .arena = arena,
-                .response = .{ .data = copied_data },
-            };
-        } else return ApiError.DataNullWhenSuccess
-    else if (request.value.@"error") |api_error| {
-        var err = ApiError.UnknownApiError;
-        if (std.mem.eql(u8, api_error.name, "ApiNotFoundError")) err = ApiError.ApiNotFoundError;
-        var copied_message = try arena.allocator().dupe(u8, api_error.message);
-        return .{
-            .arena = arena,
-            .response = .{
-                .error_response = .{
-                    .api_error = err,
-                    .message = copied_message,
-                },
-            },
-        };
-    } else return ApiError.ErrorNullWhenFailure;
+    return try toApiResponse(&arena, GameLevel, request);
 }
