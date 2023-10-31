@@ -4,6 +4,13 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    var options = b.addOptions();
+    options.addOption(
+        []const u8,
+        "integration_url",
+        b.option([]const u8, "integration_url", "The URL to run the integration tests against") orelse "http://localhost:10061",
+    );
+
     const module = b.addModule("refresh-api-zig", .{
         .source_file = .{ .path = "src/api.zig" },
     });
@@ -13,6 +20,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    main_tests.addOptions("options", options);
 
     b.getInstallStep().dependOn(&main_tests.step);
 
