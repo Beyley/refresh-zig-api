@@ -1,6 +1,8 @@
 const std = @import("std");
 const helpers = @import("helpers.zig");
 
+const max_bunkum_path_length = 1024;
+
 const RefreshApiError = struct {
     name: []const u8,
     message: []const u8,
@@ -124,6 +126,55 @@ pub const GameAnnouncement = struct {
     title: []const u8,
     text: []const u8,
     createdAt: []const u8,
+};
+
+pub const GameRoomPlayer = struct {
+    username: []const u8,
+    userId: ?[]const u8,
+};
+
+pub const RoomState = enum(i32) {
+    /// The room isn't doing much at the moment
+    idle = 0,
+    /// The room is waiting in a loading screen
+    loading = 1,
+    /// The room is looking for another group to join
+    diving_in = 3,
+    /// The room is looking for another group to join them
+    waiting_for_players = 4,
+};
+
+pub const RoomMood = enum(u8) {
+    rejecting_all = 0,
+    rejecting_all_but_friends = 1,
+    rejecting_only_friends = 2,
+    allowing_all = 3,
+};
+
+pub const RoomSlotType = enum(u8) {
+    story = 0,
+    online = 1,
+    moon = 2,
+    pod = 5,
+};
+
+pub const TokenPlatform = enum(i32) {
+    ps3 = 0,
+    rpcs3 = 1,
+    vita = 2,
+    website = 3,
+    psp = 4,
+};
+
+pub const GameRoom = struct {
+    roomId: []const u8,
+    playerIds: []const GameRoomPlayer,
+    roomState: RoomState,
+    roomMood: RoomMood,
+    levelType: RoomSlotType,
+    levelId: i32,
+    platform: TokenPlatform,
+    game: TokenGame,
 };
 
 pub const RichPresenceConfiguration = struct {
@@ -397,6 +448,52 @@ pub fn getLevelById(allocator: std.mem.Allocator, uri: std.Uri, id: i32) Error!A
     errdefer arena.deinit();
 
     return try toApiResponse(&arena, GameLevel, request);
+}
+
+pub fn getUserByUsername(allocator: std.mem.Allocator, uri: std.Uri, username: []const u8) Error!ApiResponse(GameUser) {
+    var path_buf: [max_bunkum_path_length]u8 = undefined;
+    var stream = std.io.fixedBufferStream(&path_buf);
+    try std.fmt.format(stream.writer(), "/api/v3/users/name/{s}", .{username});
+
+    const path = path_buf[0..stream.pos];
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(GameUser),
+        uri,
+        path,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiResponse(&arena, GameUser, request);
+}
+
+pub fn getRoomByUsername(allocator: std.mem.Allocator, uri: std.Uri, username: []const u8) Error!ApiResponse(GameRoom) {
+    var path_buf: [max_bunkum_path_length]u8 = undefined;
+    var stream = std.io.fixedBufferStream(&path_buf);
+    try std.fmt.format(stream.writer(), "/api/v3/rooms/username/{s}", .{username});
+
+    const path = path_buf[0..stream.pos];
+
+    var request = try makeRequest(
+        allocator,
+        RefreshApiResponse(GameRoom),
+        uri,
+        path,
+        .GET,
+        null,
+    );
+    defer request.deinit();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    return try toApiResponse(&arena, GameRoom, request);
 }
 
 fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: anytype) Error!ApiResponse(T) {

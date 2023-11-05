@@ -85,3 +85,63 @@ test "get instance documentation" {
         },
     }
 }
+
+test "get user" {
+    var res = try Api.getUserByUsername(testing.allocator, uri, "Beyley");
+    defer res.deinit();
+
+    switch (res.response) {
+        .data => |data| {
+            try testing.expectEqualStrings("Beyley", data.username);
+        },
+        .error_response => |err| {
+            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            return err.api_error;
+        },
+    }
+}
+
+test "get invalid name fails" {
+    var res = try Api.getUserByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
+    defer res.deinit();
+
+    switch (res.response) {
+        .data => |data| {
+            _ = data;
+            try testing.expect(false);
+        },
+        .error_response => |err| {
+            try testing.expectEqual(Api.Error.ApiNotFoundError, err.api_error);
+        },
+    }
+}
+
+test "get user room" {
+    var res = try Api.getRoomByUsername(testing.allocator, uri, "Beyley");
+    defer res.deinit();
+
+    switch (res.response) {
+        .data => |data| {
+            try testing.expectEqualStrings("Beyley", data.playerIds[0].username);
+        },
+        .error_response => |err| {
+            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            return err.api_error;
+        },
+    }
+}
+
+test "get invalid user room fails" {
+    var res = try Api.getRoomByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
+    defer res.deinit();
+
+    switch (res.response) {
+        .data => |data| {
+            _ = data;
+            try testing.expect(false);
+        },
+        .error_response => |err| {
+            try testing.expectEqual(Api.Error.ApiNotFoundError, err.api_error);
+        },
+    }
+}
