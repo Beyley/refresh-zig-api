@@ -63,12 +63,14 @@ pub const TokenGame = enum(i32) {
     little_big_planet_vita = 3,
     little_big_planet_psp = 4,
     website = 5,
+    _,
 };
 
 pub const GameSkillRewardCondition = enum(i32) {
     score = 0,
     time = 1,
     lives = 2,
+    _,
 };
 
 pub const GameSkillReward = struct {
@@ -83,6 +85,7 @@ pub const GameLevelType = enum(i32) {
     normal = 0,
     versus = 1,
     cutscene = 2,
+    _,
 };
 
 pub const GameLevel = struct {
@@ -119,6 +122,7 @@ pub const AssetSafetyLevel = enum(i32) {
     safe = 0,
     potentially_unwanted = 1,
     dangerous = 2,
+    _,
 };
 
 pub const GameAnnouncement = struct {
@@ -142,6 +146,7 @@ pub const RoomState = enum(i32) {
     diving_in = 3,
     /// The room is looking for another group to join them
     waiting_for_players = 4,
+    _,
 };
 
 pub const RoomMood = enum(u8) {
@@ -149,6 +154,7 @@ pub const RoomMood = enum(u8) {
     rejecting_all_but_friends = 1,
     rejecting_only_friends = 2,
     allowing_all = 3,
+    _,
 };
 
 pub const RoomSlotType = enum(u8) {
@@ -156,6 +162,7 @@ pub const RoomSlotType = enum(u8) {
     online = 1,
     moon = 2,
     pod = 5,
+    _,
 };
 
 pub const TokenPlatform = enum(i32) {
@@ -164,6 +171,7 @@ pub const TokenPlatform = enum(i32) {
     vita = 2,
     website = 3,
     psp = 4,
+    _,
 };
 
 pub const GameRoom = struct {
