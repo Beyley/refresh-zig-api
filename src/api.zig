@@ -116,6 +116,7 @@ pub const GameLevel = struct {
     isLocked: bool,
     isSubLevel: bool,
     isCopyable: bool,
+    score: f32,
 };
 
 pub const AssetSafetyLevel = enum(i32) {
@@ -220,6 +221,7 @@ pub const InstanceInformation = struct {
 const Statistics = struct {
     totalLevels: i32,
     totalUsers: i32,
+    activeUsers: i32,
     totalPhotos: i32,
     totalEvents: i32,
     currentRoomCount: i32,
@@ -237,6 +239,16 @@ const ApiRoute = struct {
     routeUri: []const u8,
     summary: []const u8,
     authenticationRequired: bool,
+    minimumRole: ?enum(i8) {
+        /// An administrator of the instance. This user has all permissions, including the ability to manage other administrators.
+        admin = 127,
+        /// A standard user. Can play the game, log in, play levels, review them, etc.
+        user = 0,
+        /// A user with read-only permissions. May log in and play, but cannot do things such as publish levels or post comments.
+        restricted = -126,
+        /// A user that has been banned. Cannot log in, or do anything.
+        banned = -127,
+    },
     parameters: []const struct {
         name: []const u8,
         type: enum {
@@ -300,7 +312,7 @@ fn makeRequest(
     try request.finish();
     try request.wait();
 
-    var reader = request.reader();
+    const reader = request.reader();
 
     var json_reader = std.json.reader(allocator, reader);
     defer json_reader.deinit();
@@ -507,7 +519,7 @@ pub fn getRoomByUsername(allocator: std.mem.Allocator, uri: std.Uri, username: [
 fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: anytype) Error!ApiResponse(T) {
     if (request.value.success)
         if (request.value.data) |data| {
-            var copied_data = try helpers.deepCopy(arena.allocator(), data);
+            const copied_data = try helpers.deepCopy(arena.allocator(), data);
             return .{
                 .arena = arena.*,
                 .response = .{ .data = copied_data },
@@ -518,7 +530,7 @@ fn toApiResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request: any
 
         if (std.mem.eql(u8, api_error.name, "ApiNotFoundError")) err = ApiError.ApiNotFoundError;
 
-        var copied_message = try arena.allocator().dupe(u8, api_error.message);
+        const copied_message = try arena.allocator().dupe(u8, api_error.message);
         return .{
             .arena = arena.*,
             .response = .{
@@ -535,7 +547,7 @@ fn toApiListResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request:
     if (request.value.success)
         if (request.value.data) |data| {
             if (request.value.listInfo) |info| {
-                var copied_data = try helpers.deepCopy(arena.allocator(), data);
+                const copied_data = try helpers.deepCopy(arena.allocator(), data);
                 return .{
                     .arena = arena.*,
                     .response = .{
@@ -552,7 +564,7 @@ fn toApiListResponse(arena: *std.heap.ArenaAllocator, comptime T: type, request:
 
         if (std.mem.eql(u8, api_error.name, "ApiNotFoundError")) err = ApiError.ApiNotFoundError;
 
-        var copied_message = try arena.allocator().dupe(u8, api_error.message);
+        const copied_message = try arena.allocator().dupe(u8, api_error.message);
         return .{
             .arena = arena.*,
             .response = .{
