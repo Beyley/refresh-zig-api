@@ -21,13 +21,20 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     main_tests.addOptions("options", options);
+    main_tests.addModule("api", module);
 
     b.getInstallStep().dependOn(&main_tests.step);
-
-    main_tests.addModule("api", module);
 
     const run_main_tests = b.addRunArtifact(main_tests);
 
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
+
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = main_tests.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "doc",
+    });
+    const install_docs_step = b.step("docs", "Generate and install the documentation");
+    install_docs_step.dependOn(&install_docs.step);
 }

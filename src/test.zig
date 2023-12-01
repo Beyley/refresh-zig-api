@@ -2,9 +2,13 @@ const std = @import("std");
 const testing = std.testing;
 const options = @import("options");
 
-const Api = @import("api");
+pub const Api = @import("api");
 
 const uri = std.Uri.parse(options.integration_url) catch @compileError("Unable to parse test URI");
+
+comptime {
+    std.testing.refAllDecls(@This());
+}
 
 test "get level" {
     const test_level_id: i32 = 2;
