@@ -2,6 +2,8 @@
 
 Zig bindings for the [Refresh](https://github.com/LittleBigRefresh/Refresh) v3 API
 
+We target the latest [Mach Nominated Version](https://machengine.org/about/nominated-zig/).
+
 ## Using through the package manager
 
 Add the following dependency to your `build.zig.zon`

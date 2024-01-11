@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
     );
 
     const module = b.addModule("refresh-api-zig", .{
-        .source_file = .{ .path = "src/api.zig" },
+        .root_source_file = .{ .path = "src/api.zig" },
     });
 
     const main_tests = b.addTest(.{
@@ -20,8 +20,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    main_tests.addOptions("options", options);
-    main_tests.addModule("api", module);
+    main_tests.root_module.addOptions("options", options);
+    main_tests.root_module.addImport("api", module);
 
     b.getInstallStep().dependOn(&main_tests.step);
 
