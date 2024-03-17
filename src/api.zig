@@ -474,14 +474,7 @@ fn makeRequest(
         .payload = request_body,
         .response_storage = .{ .dynamic = &response },
     });
-
-    if (result.status == .not_found)
-        return ApiError.ApiNotFoundError;
-
-    if (result.status.class() != .success) {
-        log.err("Bad HTTP response code {d}\n", .{@intFromEnum(result.status)});
-        return ApiError.UnknownApiError;
-    }
+    _ = result; // autofix
 
     return try std.json.parseFromSlice(
         T,
