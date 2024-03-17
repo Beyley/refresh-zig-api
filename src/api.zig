@@ -5,6 +5,8 @@ comptime {
     std.testing.refAllDecls(@This());
 }
 
+const log = std.log.scoped(.refresh_api);
+
 // No URIs can exceed this length, matches https://github.com/LittleBigRefresh/Bunkum/blob/927d7d6113de00857076d052c4dabd8e8abf6d3d/Bunkum.Listener/BunkumListener.cs#L31
 const max_bunkum_path_length = 1024;
 
@@ -446,7 +448,8 @@ pub const Error =
     std.http.Client.RequestError ||
     std.http.Client.Request.WaitError ||
     std.http.Client.Request.FinishError ||
-    std.json.ParseError(std.json.Reader(std.json.default_buffer_size, std.http.Client.Request.Reader));
+    @typeInfo(@typeInfo(@TypeOf(std.http.Client.fetch)).Fn.return_type.?).ErrorUnion.error_set ||
+    std.json.ParseError(std.json.Scanner);
 
 fn makeRequest(
     allocator: std.mem.Allocator,
@@ -462,33 +465,25 @@ fn makeRequest(
     var uri = _uri;
     uri.path = path;
 
-    //Create a request to the Instance v3 API to get server info
-    var request = try client.open(
-        method,
-        uri,
-        .{ .allocator = allocator },
-        .{},
-    );
-    defer request.deinit();
+    var response = std.ArrayList(u8).init(allocator);
+    defer response.deinit();
 
-    //Send the request to the server
-    try request.send(.{});
-    //If the request has a body, send it to the server as well
-    if (request_body) |body| try request.writeAll(body);
+    const result = try client.fetch(.{
+        .location = .{ .uri = uri },
+        .method = method,
+        .payload = request_body,
+        .response_storage = .{ .dynamic = &response },
+    });
 
-    //Finish the request
-    try request.finish();
-    try request.wait();
+    if (result.status.class() != .success) {
+        log.err("Bad HTTP response code {d}\n", .{@intFromEnum(result.status)});
+        return ApiError.UnknownApiError;
+    }
 
-    const reader = request.reader();
-
-    var json_reader = std.json.reader(allocator, reader);
-    defer json_reader.deinit();
-
-    return try std.json.parseFromTokenSource(
+    return try std.json.parseFromSlice(
         T,
         allocator,
-        &json_reader,
+        response.items,
         .{
             //When runtime safety is enabled, crash if theres unknown fields
             .ignore_unknown_fields = !std.debug.runtime_safety,
