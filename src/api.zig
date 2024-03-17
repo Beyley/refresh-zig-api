@@ -485,8 +485,10 @@ fn makeRequest(
         allocator,
         response.items,
         .{
-            //When runtime safety is enabled, crash if theres unknown fields
+            // When runtime safety is enabled, crash if theres unknown fields
             .ignore_unknown_fields = !std.debug.runtime_safety,
+            // Always allocate, since we are freeing the source array
+            .allocate = .alloc_always,
         },
     );
 }
