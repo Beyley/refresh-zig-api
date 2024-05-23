@@ -1,5 +1,6 @@
 const std = @import("std");
 const helpers = @import("helpers.zig");
+const builtin = @import("builtin");
 
 comptime {
     std.testing.refAllDecls(@This());
@@ -79,6 +80,20 @@ pub const GameUser = struct {
     joinDate: []const u8,
     /// The last time the user was logged into the server
     lastLoginDate: []const u8,
+
+    /// The role of a user
+    pub const Role = enum(i8) {
+        /// An administrator of the instance. This user has all permissions, including the ability to manage other administrators.
+        admin = 127,
+        /// A user with special permissions. May upload assets when asset uploads are otherwise disabled.
+        trusted = 1,
+        /// A standard user. Can play the game, log in, play levels, review them, etc.
+        user = 0,
+        /// A user with read-only permissions. May log in and play, but cannot do things such as publish levels or post comments.
+        restricted = -126,
+        /// A user that has been banned. Cannot log in, or do anything.
+        banned = -127,
+    };
 };
 
 /// Represents one of the LBP games
@@ -95,6 +110,8 @@ pub const TokenGame = enum(i32) {
     little_big_planet_psp = 4,
     /// The website
     website = 5,
+    /// An unspecified beta build of a game
+    beta_build = 6,
     _,
 };
 
@@ -140,6 +157,10 @@ pub const GameLevel = struct {
     levelId: i32,
     /// The publisher of the level
     publisher: GameUser,
+    /// Whether or not the level is a re-upload
+    isReUpload: bool,
+    /// The original publisher of the level, if it is a re-upload
+    originalPublisher: ?[]const u8,
     /// The title of the level
     title: []const u8,
     /// The hash of the level's icon
@@ -186,18 +207,20 @@ pub const GameLevel = struct {
     isSubLevel: bool,
     /// Whether or not the level is copyable
     isCopyable: bool,
-    /// The cool-levels score
+    /// The cool levels score
     score: f32,
 };
 
 /// The safety level of an asset
 pub const AssetSafetyLevel = enum(i32) {
-    /// The asset is guarenteed safe
+    /// The asset is safe and used in normal gameplay
     safe = 0,
+    /// The asset is still used in normal gameplay, but is a type of media, like an image, audio clip, or video
+    safe_media = 1,
     /// The asset may be unwanted, and break the "vanilla" feel of the server
-    potentially_unwanted = 1,
+    potentially_unwanted = 2,
     /// The asset is dangerous, and could cause problems for users
-    dangerous = 2,
+    dangerous = 3,
     _,
 };
 
@@ -344,6 +367,8 @@ pub const InstanceInformation = struct {
     registrationEnabled: bool,
     /// The maximum asset safety level allowed on the server
     maximumAssetSafetyLevel: AssetSafetyLevel,
+    /// The maximum asset safety level allowed for trusted users on the server
+    maximumAssetSafetyLevelForTrustedUsers: AssetSafetyLevel,
     /// All current announcements on the server
     announcements: []const GameAnnouncement,
     /// The rich presence configration of the server
@@ -352,6 +377,52 @@ pub const InstanceInformation = struct {
     maintenanceModeEnabled: bool,
     /// The URL to the grafana dashboard
     grafanaDashboardUrl: ?[]const u8,
+    /// The instance owner's contact info
+    contactInfo: ContactInfo,
+    /// The latest currently active contest
+    activeContest: ?Contest,
+};
+
+/// Contact info for the instance owner
+const ContactInfo = struct {
+    /// The name of the admin to contact
+    adminName: []const u8,
+    /// The email address of the admin
+    emailAddress: []const u8,
+    /// An invite to the discord server associated with the instance
+    discordServerInvite: ?[]const u8,
+    /// The discord username of the instance admin
+    adminDiscordUsername: ?[]const u8,
+};
+
+/// A game contest
+const Contest = struct {
+    /// The ID of the contest
+    contestId: []const u8,
+    /// The organizer user
+    organizer: GameUser,
+    /// The creation date
+    creationDate: []const u8,
+    /// The start date
+    startDate: []const u8,
+    /// The end date
+    endDate: []const u8,
+    /// The tag for the contest
+    contestTag: []const u8,
+    /// The URL to the banner for the contest
+    bannerUrl: []const u8,
+    /// The title of the contest
+    contestTitle: []const u8,
+    /// The summary of the contest
+    contestSummary: []const u8,
+    /// The details of the contest
+    contestDetails: []const u8,
+    /// The theme of the contest
+    contestTheme: ?[]const u8,
+    /// The games which are allowed in the contest
+    allowedGames: []const TokenGame,
+    /// The template level submissions should base off of
+    templateLevel: ?GameLevel,
 };
 
 /// Various statistics about the server
@@ -376,8 +447,6 @@ const Statistics = struct {
         totalRequests: i64,
         /// The total count of API requests made
         apiRequests: i64,
-        /// The total count of legacy API requests made
-        legacyApiRequests: i64,
         /// The total count of game requests made
         gameRequests: i64,
     },
@@ -385,27 +454,7 @@ const Statistics = struct {
 
 /// Represents an API route in the documentation
 const ApiRoute = struct {
-    /// The HTTP method that the route uses
-    method: []const u8,
-    /// The URI of the route
-    routeUri: []const u8,
-    /// The summary of the route
-    summary: []const u8,
-    /// Whether or not the route requires authentication
-    authenticationRequired: bool,
-    /// The minimum role required to access the route
-    minimumRole: ?enum(i8) {
-        /// An administrator of the instance. This user has all permissions, including the ability to manage other administrators.
-        admin = 127,
-        /// A standard user. Can play the game, log in, play levels, review them, etc.
-        user = 0,
-        /// A user with read-only permissions. May log in and play, but cannot do things such as publish levels or post comments.
-        restricted = -126,
-        /// A user that has been banned. Cannot log in, or do anything.
-        banned = -127,
-    },
-    /// The parameters the endpoint takes
-    parameters: []const struct {
+    pub const Parameter = struct {
         /// The name of the parameter
         name: []const u8,
         /// The type of the parameter
@@ -417,14 +466,29 @@ const ApiRoute = struct {
         },
         /// The summary of the parameter
         summary: []const u8,
-    },
-    /// A list of potential errors that the route could return
-    potentialErrors: []const struct {
+    };
+
+    pub const Error = struct {
         /// The name of the error
         name: []const u8,
         /// Details about when the error could occur
         occursWhen: []const u8,
-    },
+    };
+
+    /// The HTTP method that the route uses
+    method: []const u8,
+    /// The URI of the route
+    routeUri: []const u8,
+    /// The summary of the route
+    summary: []const u8,
+    /// Whether or not the route requires authentication
+    authenticationRequired: bool,
+    /// The minimum role required to access the route
+    minimumRole: ?GameUser.Role,
+    /// The parameters the endpoint takes
+    parameters: []const Parameter,
+    /// A list of potential errors that the route could return
+    potentialErrors: []const ApiRoute.Error,
 };
 
 /// Zig error counterparts of all API errors
@@ -437,6 +501,12 @@ const ApiError = error{
     UnknownApiError,
     /// The requested resource was not found
     ApiNotFoundError,
+    /// The data passed is invalid
+    ApiValidationError,
+    /// An error was found with the user's authentication
+    ApiAuthenticationError,
+    /// An internal error happened in the server
+    ApiInternalError,
     /// The list response is missing the list info
     ListResponseMissingListInfo,
 };
@@ -481,8 +551,8 @@ fn makeRequest(
         allocator,
         response.items,
         .{
-            // When runtime safety is enabled, crash if theres unknown fields
-            .ignore_unknown_fields = !std.debug.runtime_safety,
+            // In debug mode, crash on unknown fields
+            .ignore_unknown_fields = builtin.mode != .Debug,
             // Always allocate, since we are freeing the source array
             .allocate = .alloc_always,
         },

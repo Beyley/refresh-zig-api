@@ -21,7 +21,7 @@ test "get level" {
             try testing.expectEqual(test_level_id, data.levelId);
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
@@ -54,7 +54,7 @@ test "get instance info" {
             try testing.expectEqualStrings("this is an instance description, i have nothing to put here. stop reading now. HEY stop it!!!", data.instanceDescription);
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
@@ -69,7 +69,7 @@ test "get instance statistics" {
             _ = data;
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
@@ -84,7 +84,7 @@ test "get instance documentation" {
             _ = list;
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
@@ -99,7 +99,7 @@ test "get user" {
             try testing.expectEqualStrings("Beyley", data.username);
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
@@ -129,7 +129,7 @@ test "get user room" {
             try testing.expectEqualStrings("Beyley", data.playerIds[0].username);
         },
         .error_response => |err| {
-            std.debug.print("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
+            std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
             return err.api_error;
         },
     }
