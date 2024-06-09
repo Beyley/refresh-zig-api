@@ -93,6 +93,7 @@ pub const GameUser = struct {
         restricted = -126,
         /// A user that has been banned. Cannot log in, or do anything.
         banned = -127,
+        _,
     };
 };
 
