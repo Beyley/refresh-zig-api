@@ -10,7 +10,7 @@ Add the following dependency to your `build.zig.zon`
 
 ```zig
 .refresh_api = .{
-    .url = "https://github.com/LittleBigRefresh/refresh-api-zig/archive/[REPLACE_WITH_LATEST_COMMIT_HASH].tar.gz",
+    .url = "git+https://github.com/LittleBigRefresh/refresh-api-zig#REPLACE_WITH_LATEST_COMMIT_HASH",
 },
 ```
 
@@ -26,6 +26,7 @@ exe.addModule("api", refresh_api_zig.module("refresh-api-zig"));
 ```
 
 Then, in your source code, you can import the API as such
+
 ```zig
 const Api = @import("api");
 ```

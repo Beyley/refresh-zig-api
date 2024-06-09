@@ -533,7 +533,7 @@ fn makeRequest(
     defer client.deinit();
 
     var uri = _uri;
-    uri.path = path;
+    uri.path = .{ .raw = path };
 
     var response = std.ArrayList(u8).init(allocator);
     defer response.deinit();

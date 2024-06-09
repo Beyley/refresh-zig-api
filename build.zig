@@ -12,11 +12,11 @@ pub fn build(b: *std.Build) void {
     );
 
     const module = b.addModule("refresh-api-zig", .{
-        .root_source_file = .{ .path = "src/api.zig" },
+        .root_source_file = b.path("src/api.zig"),
     });
 
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/test.zig" },
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = optimize,
     });
