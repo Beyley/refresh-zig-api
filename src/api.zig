@@ -80,11 +80,19 @@ pub const GameUser = struct {
     joinDate: []const u8,
     /// The last time the user was logged into the server
     lastLoginDate: []const u8,
+    /// The role of the user
+    role: Role,
+    /// The statistics the user has
+    statistics: GameUserStatistics,
+    /// The room which the user is currently active in
+    activeRoom: ?GameRoom,
 
     /// The role of a user
     pub const Role = enum(i8) {
         /// An administrator of the instance. This user has all permissions, including the ability to manage other administrators.
         admin = 127,
+        /// A user that doesn't have moderator powers, but may team pick levels, set re-upload data, and adjust the level's game version.
+        Curator = 64,
         /// A user with special permissions. May upload assets when asset uploads are otherwise disabled.
         trusted = 1,
         /// A standard user. Can play the game, log in, play levels, review them, etc.
@@ -95,6 +103,17 @@ pub const GameUser = struct {
         banned = -127,
         _,
     };
+};
+
+pub const GameUserStatistics = struct {
+    /// The amount of people who have favourited this user
+    favourites: i32,
+    /// The amount of comments on this user's profile
+    profileComments: i32,
+    /// The amount of levels published by this user
+    publishedLevels: i32,
+    /// The amount of photos taken by this user
+    photosTaken: i32,
 };
 
 /// Represents one of the LBP games
@@ -196,6 +215,12 @@ pub const GameLevel = struct {
     booRatings: i32,
     /// The amount of hearts the level has recieved
     hearts: i32,
+    /// The amount of photos taken on the level
+    photosTaken: i32,
+    /// The amount of comments the level has recieved
+    levelComments: i32,
+    /// The amount of reviews the level has gotten
+    reviews: i32,
     /// The amount of unique plays the level has
     uniquePlays: i32,
     /// Whether or not the level is team picked or not
