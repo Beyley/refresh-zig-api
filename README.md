@@ -6,15 +6,11 @@ We target the latest [Mach Nominated Version](https://machengine.org/about/nomin
 
 ## Using through the package manager
 
-Add the following dependency to your `build.zig.zon`
+Run the following command
 
-```zig
-.refresh_api = .{
-    .url = "git+https://github.com/LittleBigRefresh/refresh-api-zig#REPLACE_WITH_LATEST_COMMIT_HASH",
-},
+```bash
+zig fetch --save git+https://github.com/LittleBigRefresh/refresh-api-zig
 ```
-
-You will recieve an error, telling you to add a `hash` field to the dependency, do so.
 
 Next, add the following to your `build.zig`
 

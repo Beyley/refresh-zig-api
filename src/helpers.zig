@@ -8,31 +8,31 @@ pub fn deepCopy(allocator: std.mem.Allocator, value: anytype) !@TypeOf(value) {
     var new_val: T = undefined;
 
     switch (TypeInfo) {
-        .Void,
-        .Bool,
-        .Int,
-        .Float,
-        .Type,
-        .NoReturn,
-        .ComptimeFloat,
-        .ComptimeInt,
-        .Undefined,
-        .Null,
-        .ErrorSet,
-        .Enum,
-        .Fn,
-        .Opaque,
-        .Frame,
-        .AnyFrame,
-        .Vector,
-        .EnumLiteral,
-        .Pointer,
-        .Array,
-        .Optional,
-        .ErrorUnion,
-        .Union,
+        .void,
+        .bool,
+        .int,
+        .float,
+        .type,
+        .noreturn,
+        .comptime_float,
+        .comptime_int,
+        .undefined,
+        .null,
+        .error_set,
+        .@"enum",
+        .@"fn",
+        .@"opaque",
+        .frame,
+        .@"anyframe",
+        .vector,
+        .enum_literal,
+        .pointer,
+        .array,
+        .optional,
+        .error_union,
+        .@"union",
         => new_val = try copyField(allocator, value),
-        .Struct => inline for (TypeInfo.Struct.fields) |field| {
+        .@"struct" => inline for (TypeInfo.@"struct".fields) |field| {
             @field(new_val, field.name) = try copyField(allocator, @field(value, field.name));
         },
     }
@@ -44,27 +44,27 @@ fn copyField(allocator: std.mem.Allocator, value: anytype) !@TypeOf(value) {
     const T = @TypeOf(value);
     const TypeInfo = @typeInfo(T);
     switch (TypeInfo) {
-        .Void,
-        .Bool,
-        .Int,
-        .Float,
-        .Type,
-        .NoReturn,
-        .ComptimeFloat,
-        .ComptimeInt,
-        .Undefined,
-        .Null,
-        .ErrorSet,
-        .Enum,
-        .Fn,
-        .Opaque,
-        .Frame,
-        .AnyFrame,
-        .Vector,
-        .EnumLiteral,
-        .Array,
+        .void,
+        .bool,
+        .int,
+        .float,
+        .type,
+        .noreturn,
+        .comptime_float,
+        .comptime_int,
+        .undefined,
+        .null,
+        .error_set,
+        .@"enum",
+        .@"fn",
+        .@"opaque",
+        .frame,
+        .@"anyframe",
+        .vector,
+        .enum_literal,
+        .array,
         => return value,
-        .Pointer => |ptr_info| {
+        .pointer => |ptr_info| {
             switch (ptr_info.size) {
                 .One => {
                     const copy = try allocator.create(T);
@@ -87,15 +87,15 @@ fn copyField(allocator: std.mem.Allocator, value: anytype) !@TypeOf(value) {
                 .Many, .C => @compileError("TODO"),
             }
         },
-        .Struct => return try deepCopy(allocator, value),
-        .Optional => {
+        .@"struct" => return try deepCopy(allocator, value),
+        .optional => {
             return if (value) |val|
                 try deepCopy(allocator, val)
             else
                 null;
         },
-        .ErrorUnion => @compileError("TODO"),
-        .Union => {
+        .error_union => @compileError("TODO"),
+        .@"union" => {
             switch (value) {
                 inline else => |val| {
                     return try copyField(allocator, val);

@@ -70,6 +70,12 @@ pub const GameUser = struct {
     username: []const u8,
     /// The hash of the user's icon
     iconHash: []const u8,
+    /// The hash of the user's Yay icon
+    yayFaceHash: []const u8,
+    /// The hash of the user's Boo icon
+    booFaceHash: []const u8,
+    /// The hash of the user's Meh icon
+    mehFaceHash: []const u8,
     /// The description of the user
     description: []const u8,
     /// The location the user's profile photo is on their moon
@@ -171,16 +177,26 @@ pub const GameLevelType = enum(i32) {
     _,
 };
 
+pub const GameSlotType = enum(i32) {
+    user,
+    story,
+    playlist,
+};
+
 /// A level uploaded the server
 pub const GameLevel = struct {
     /// The ID of the level
     levelId: i32,
     /// The publisher of the level
-    publisher: GameUser,
-    /// Whether or not the level is a re-upload
+    publisher: ?GameUser,
+    /// Whether the level is a re-upload
     isReUpload: bool,
+    /// Whether the level contains any modded assets
+    isModded: bool,
     /// The original publisher of the level, if it is a re-upload
     originalPublisher: ?[]const u8,
+    /// Whether the level is an adventure
+    isAdventure: bool,
     /// The title of the level
     title: []const u8,
     /// The hash of the level's icon
@@ -225,6 +241,8 @@ pub const GameLevel = struct {
     uniquePlays: i32,
     /// Whether or not the level is team picked or not
     teamPicked: bool,
+    /// The date the level was team picked
+    dateTeamPicked: ?[]const u8,
     /// The type of the level
     levelType: GameLevelType,
     /// Whether or not the level is locked
@@ -235,19 +253,92 @@ pub const GameLevel = struct {
     isCopyable: bool,
     /// The cool levels score
     score: f32,
+    tags: []const Tag,
 };
 
-/// The safety level of an asset
-pub const AssetSafetyLevel = enum(i32) {
-    /// The asset is safe and used in normal gameplay
-    safe = 0,
-    /// The asset is still used in normal gameplay, but is a type of media, like an image, audio clip, or video
-    safe_media = 1,
-    /// The asset may be unwanted, and break the "vanilla" feel of the server
-    potentially_unwanted = 2,
-    /// The asset is dangerous, and could cause problems for users
-    dangerous = 3,
-    _,
+pub const Tag = enum(u8) {
+    Boss = 0,
+    Varied = 1,
+    Repetitive = 2,
+    MultiPath = 3,
+    SinglePath = 4,
+    Frustrating = 5,
+    Relaxing = 6,
+    Coop = 7,
+    Competitive = 8,
+    Fun = 9,
+    Funny = 10,
+    Complex = 11,
+    Simple = 12,
+    Long = 13,
+    Short = 14,
+    Quick = 15,
+    Slow = 16,
+    Tricky = 17,
+    Horizontal = 18,
+    Vertical = 19,
+    Musical = 20,
+    Moody = 21,
+    Timing = 22,
+    Perilous = 23,
+    NerveWracking = 24,
+    Cute = 25,
+    Mad = 26,
+    Hectic = 27,
+    Creepy = 28,
+    Daft = 29,
+    Hilarious = 30,
+    Puzzler = 31,
+    Platformer = 32,
+    Speedy = 33,
+    Fast = 34,
+    PointsFest = 35,
+    Artistic = 36,
+    Funky = 37,
+    Empty = 38,
+    Mechanical = 39,
+    Race = 40,
+    Fiery = 41,
+    Spikes = 42,
+    Vehicles = 43,
+    Ramps = 44,
+    Machines = 45,
+    Toys = 46,
+    Stickers = 47,
+    Gas = 48,
+    Secrets = 49,
+    Collectables = 50,
+    Braaains = 51,
+    Hoists = 52,
+    Bubbly = 53,
+    Swingy = 54,
+    Balancing = 55,
+    Floaty = 56,
+    Springy = 57,
+    Machinery = 58,
+    Annoying = 59,
+    Satisfying = 60,
+    Brilliant = 61,
+    Great = 62,
+    Good = 63,
+    Rubbish = 64,
+    Pretty = 65,
+    Ugly = 66,
+    Difficult = 67,
+    Easy = 68,
+    Weird = 69,
+    Boring = 70,
+    Splendid = 71,
+    Lousy = 72,
+    Ingenious = 73,
+    Beautiful = 74,
+    Electric = 75,
+};
+
+pub const AssetFlags = struct {
+    Dangerous: bool,
+    Media: bool,
+    Modded: bool,
 };
 
 /// An announcement from the server
@@ -346,6 +437,11 @@ pub const GameRoom = struct {
 
 /// The server's Discord rich presence configuration
 pub const RichPresenceConfiguration = struct {
+    pub const UsernameType = enum(u8) {
+        UserId = 0,
+        Username = 1,
+    };
+
     /// The application ID to give to discord
     applicationId: []const u8,
     /// The prefix to put before all parties
@@ -391,10 +487,10 @@ pub const InstanceInformation = struct {
     softwareLicenseUrl: []const u8,
     /// Whether or not registration is enabled on the server
     registrationEnabled: bool,
-    /// The maximum asset safety level allowed on the server
-    maximumAssetSafetyLevel: AssetSafetyLevel,
-    /// The maximum asset safety level allowed for trusted users on the server
-    maximumAssetSafetyLevelForTrustedUsers: AssetSafetyLevel,
+    /// The asset flags which are blocked by the server
+    blockedAssetFlags: AssetFlags,
+    /// The asset flags which are blocked by the server for trusted users
+    blockedAssetFlagsForTrustedUsers: AssetFlags,
     /// All current announcements on the server
     announcements: []const GameAnnouncement,
     /// The rich presence configration of the server
@@ -455,6 +551,8 @@ const Contest = struct {
 const Statistics = struct {
     /// The total count of uploaded levels
     totalLevels: i32,
+    /// The total count of modded levels
+    moddedLevels: i32,
     /// The total count of created users
     totalUsers: i32,
     /// The total count of active users
@@ -544,7 +642,7 @@ pub const Error =
     std.http.Client.RequestError ||
     std.http.Client.Request.WaitError ||
     std.http.Client.Request.FinishError ||
-    @typeInfo(@typeInfo(@TypeOf(std.http.Client.fetch)).Fn.return_type.?).ErrorUnion.error_set ||
+    @typeInfo(@typeInfo(@TypeOf(std.http.Client.fetch)).@"fn".return_type.?).error_union.error_set ||
     std.json.ParseError(std.json.Scanner);
 
 fn makeRequest(
@@ -602,11 +700,9 @@ fn ApiResponse(comptime T: type) type {
             data: T,
         },
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             //Deinit the arena, freeing the data
             self.arena.deinit();
-            //Set self to undefined, so safety checks catch further usage
-            self.* = undefined;
         }
     };
 }
@@ -631,11 +727,9 @@ fn ApiListResponse(comptime T: type) type {
             },
         },
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             //Deinit the arena, freeing the data
             self.arena.deinit();
-            //Set self to undefined, so safety checks catch further usage
-            self.* = undefined;
         }
     };
 }

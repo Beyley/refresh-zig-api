@@ -11,9 +11,9 @@ comptime {
 }
 
 test "get level" {
-    const test_level_id: i32 = 2;
+    const test_level_id: i32 = 100;
 
-    var res = try Api.getLevelById(testing.allocator, uri, test_level_id);
+    const res = try Api.getLevelById(testing.allocator, uri, test_level_id);
     defer res.deinit();
 
     switch (res.response) {
@@ -30,7 +30,7 @@ test "get level" {
 test "get level id invalid" {
     const test_level_id: i32 = std.math.maxInt(i32);
 
-    var res = try Api.getLevelById(testing.allocator, uri, test_level_id);
+    const res = try Api.getLevelById(testing.allocator, uri, test_level_id);
     defer res.deinit();
 
     switch (res.response) {
@@ -45,13 +45,13 @@ test "get level id invalid" {
 }
 
 test "get instance info" {
-    var res = try Api.getInstanceInformation(testing.allocator, uri);
+    const res = try Api.getInstanceInformation(testing.allocator, uri);
     defer res.deinit();
 
     switch (res.response) {
         .data => |data| {
-            try testing.expectEqualStrings("Beyley's Test Instance", data.instanceName);
-            try testing.expectEqualStrings("this is an instance description, i have nothing to put here. stop reading now. HEY stop it!!!", data.instanceDescription);
+            try testing.expectEqualStrings("LittleBigRefresh", data.instanceName);
+            try testing.expectEqualStrings("The community's quality-of-life experience for LBP.", data.instanceDescription);
         },
         .error_response => |err| {
             std.log.err("Got unexpected error {s} with message {s} from API\n", .{ @errorName(err.api_error), err.message });
@@ -61,7 +61,7 @@ test "get instance info" {
 }
 
 test "get instance statistics" {
-    var res = try Api.getStatistics(testing.allocator, uri);
+    const res = try Api.getStatistics(testing.allocator, uri);
     defer res.deinit();
 
     switch (res.response) {
@@ -76,7 +76,7 @@ test "get instance statistics" {
 }
 
 test "get instance documentation" {
-    var res = try Api.getDocumentation(testing.allocator, uri);
+    const res = try Api.getDocumentation(testing.allocator, uri);
     defer res.deinit();
 
     switch (res.response) {
@@ -91,7 +91,7 @@ test "get instance documentation" {
 }
 
 test "get user" {
-    var res = try Api.getUserByUsername(testing.allocator, uri, "Beyley");
+    const res = try Api.getUserByUsername(testing.allocator, uri, "Beyley");
     defer res.deinit();
 
     switch (res.response) {
@@ -106,7 +106,7 @@ test "get user" {
 }
 
 test "get invalid name fails" {
-    var res = try Api.getUserByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
+    const res = try Api.getUserByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
     defer res.deinit();
 
     switch (res.response) {
@@ -121,7 +121,7 @@ test "get invalid name fails" {
 }
 
 test "get user room" {
-    var res = try Api.getRoomByUsername(testing.allocator, uri, "Beyley");
+    const res = try Api.getRoomByUsername(testing.allocator, uri, "Beyley");
     defer res.deinit();
 
     switch (res.response) {
@@ -136,7 +136,7 @@ test "get user room" {
 }
 
 test "get invalid user room fails" {
-    var res = try Api.getRoomByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
+    const res = try Api.getRoomByUsername(testing.allocator, uri, "I_AM_NOT_REAL");
     defer res.deinit();
 
     switch (res.response) {
